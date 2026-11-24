@@ -153,6 +153,9 @@ input[type="color"]::-moz-color-swatch { border: none; border-radius: 5px; }
 .formats button { font-weight: 600; letter-spacing: .02em; }
 
 /* ---- texture picker ---- */
+.tex-tabs { margin: 0 0 12px; }
+.tex-tabs button { padding: 6px 4px; font-size: 12.5px; }
+.tex-tabs button .count { color: var(--muted); font-weight: 400; margin-left: 3px; font-size: 11px; }
 .tex-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .tex-group { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); margin-top: 4px; }
 .tex-btn {
