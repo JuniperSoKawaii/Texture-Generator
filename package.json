@@ -1,0 +1,10 @@
+{
+  "name": "texture-generator",
+  "private": true,
+  "type": "module",
+  "description": "Static, client-side texture generator for web and print (served by GitHub Pages).",
+  "scripts": {
+    "serve": "python3 -m http.server 8000",
+    "test": "node tests/smoke.test.js"
+  }
+}

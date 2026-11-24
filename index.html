@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Texture Generator</title>
+  <meta name="description" content="Generate paper, grain, dirt, concrete, canvas and other textures for web and print. Transparent backgrounds, seamless tiles, PNG, JPEG, WebP and SVG export — all in your browser.">
+  <meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="7" fill="currentColor" opacity=".14"/><path d="M8 22c3-6 6-9 9-9s4 3 7 3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="11" cy="10" r="1.6" fill="currentColor"/><circle cx="22" cy="23" r="1.2" fill="currentColor"/><circle cx="24" cy="9" r="1" fill="currentColor"/></svg>
+      <div>
+        <h1>Texture Generator</h1>
+        <p class="tagline">Paper, grain &amp; grunge for web and print — rendered in your browser</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button type="button" class="btn ghost" id="btn-share" title="Copy a link to these exact settings">Copy link</button>
+      <button type="button" class="btn ghost" id="btn-reset" title="Reset everything to defaults">Reset</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Left: what the texture looks like -->
+    <aside class="panel panel-left" aria-label="Texture settings">
+      <section class="card">
+        <h2>Texture</h2>
+        <div id="tex-grid" class="tex-grid" role="listbox" aria-label="Texture type"></div>
+        <p id="tex-desc" class="muted small"></p>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Settings</h2>
+          <button type="button" class="link" id="btn-reset-params">Reset</button>
+        </div>
+        <div id="params"></div>
+        <div class="row seed-row">
+          <label for="seed">Seed</label>
+          <input type="number" id="seed" min="0" max="999999" step="1">
+          <button type="button" class="btn small" id="btn-seed" title="New random seed">Randomize</button>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="tile">
+          <span>Seamless tile <span class="muted">(repeats without visible edges)</span></span>
+        </label>
+      </section>
+
+      <section class="card">
+        <h2>Colour &amp; transparency</h2>
+        <div class="color-row">
+          <div class="swatch-wrap"><input type="color" id="high" aria-label="Base colour"></div>
+          <div class="grow">
+            <div class="label-line"><span>Base</span><output id="highA-out"></output></div>
+            <input type="range" id="highA" min="0" max="1" step="0.01" aria-label="Base opacity">
+          </div>
+        </div>
+        <div class="color-row">
+          <div class="swatch-wrap"><input type="color" id="low" aria-label="Texture colour"></div>
+          <div class="grow">
+            <div class="label-line"><span>Texture</span><output id="lowA-out"></output></div>
+            <input type="range" id="lowA" min="0" max="1" step="0.01" aria-label="Texture opacity">
+          </div>
+        </div>
+        <div class="seg" role="group" aria-label="Transparency presets">
+          <button type="button" data-alpha="opaque">Opaque</button>
+          <button type="button" data-alpha="base" title="Make the base transparent so only the texture remains — ideal for overlays">Transparent base</button>
+          <button type="button" data-alpha="tex" title="Make the texture transparent — a cut-out of the base colour">Cut-out</button>
+        </div>
+        <div class="palette" id="palette" aria-label="Colour presets"></div>
+        <div class="row">
+          <button type="button" class="btn small" id="btn-swap">Swap colours</button>
+          <button type="button" class="btn small" id="btn-defcolors">Texture default</button>
+        </div>
+        <div class="field">
+          <div class="label-line"><label for="opacity">Overall opacity</label><output id="opacity-out"></output></div>
+          <input type="range" id="opacity" min="0" max="1" step="0.01">
+        </div>
+        <label class="check"><input type="checkbox" id="keepColors"><span>Keep colours when switching texture</span></label>
+      </section>
+
+      <section class="card">
+        <h2>Adjustments</h2>
+        <div class="field">
+          <div class="label-line"><label for="brightness">Brightness</label><output id="brightness-out"></output></div>
+          <input type="range" id="brightness" min="-0.6" max="0.6" step="0.01">
+        </div>
+        <div class="field">
+          <div class="label-line"><label for="contrast">Contrast</label><output id="contrast-out"></output></div>
+          <input type="range" id="contrast" min="0" max="4" step="0.01">
+        </div>
+        <div class="field">
+          <div class="label-line"><label for="grain">Extra grain</label><output id="grain-out"></output></div>
+          <input type="range" id="grain" min="0" max="1" step="0.01">
+        </div>
+        <div class="field">
+          <div class="label-line"><label for="vignette">Vignette</label><output id="vignette-out"></output></div>
+          <input type="range" id="vignette" min="0" max="1" step="0.01">
+        </div>
+        <label class="check"><input type="checkbox" id="invert"><span>Invert tones</span></label>
+      </section>
+    </aside>
+
+    <!-- Centre: preview -->
+    <section class="stage" aria-label="Preview">
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Zoom">
+          <button type="button" data-view="fit" title="Whole image, downscaled">Fit</button>
+          <button type="button" data-view="actual" title="Actual export pixels — drag to pan">100%</button>
+        </div>
+        <label class="check inline" id="tiled-wrap"><input type="checkbox" id="tiled"><span>Show 2×2 repeat</span></label>
+        <div class="seg" role="group" aria-label="Preview background">
+          <button type="button" data-bg="checker" title="Checkerboard (shows transparency)">▦</button>
+          <button type="button" data-bg="light" title="Light background">☀</button>
+          <button type="button" data-bg="dark" title="Dark background">☾</button>
+        </div>
+      </div>
+      <div class="viewport bg-checker" id="viewport">
+        <canvas id="preview" aria-label="Texture preview"></canvas>
+        <div class="busy" id="busy" hidden><span class="spinner"></span></div>
+      </div>
+      <div class="statusbar">
+        <span id="status-size"></span>
+        <span id="status-time" class="muted"></span>
+      </div>
+    </section>
+
+    <!-- Right: output -->
+    <aside class="panel panel-right" aria-label="Output">
+      <section class="card">
+        <h2>Size</h2>
+        <div class="field">
+          <label for="size-group">Category</label>
+          <select id="size-group"></select>
+        </div>
+        <div class="field" id="preset-field">
+          <label for="size-preset">Preset</label>
+          <select id="size-preset"></select>
+        </div>
+        <div id="custom-fields" class="custom-grid" hidden>
+          <div class="field"><label for="cw">Width</label><input type="number" id="cw" min="1" step="any"></div>
+          <div class="field"><label for="ch">Height</label><input type="number" id="ch" min="1" step="any"></div>
+          <div class="field"><label for="cunit">Unit</label>
+            <select id="cunit"><option value="px">px</option><option value="in">in</option><option value="mm">mm</option><option value="cm">cm</option></select>
+          </div>
+        </div>
+        <div class="row">
+          <button type="button" class="btn small" id="btn-rotate" title="Swap width and height">⟲ Rotate</button>
+          <div class="field inline" id="dpi-field">
+            <label for="dpi">DPI</label>
+            <select id="dpi"></select>
+          </div>
+        </div>
+        <label class="check" id="bleed-wrap"><input type="checkbox" id="bleed"><span>Add bleed <span class="muted" id="bleed-amt">(3 mm each side)</span></span></label>
+        <p class="size-info" id="size-info"></p>
+        <p class="warn" id="size-warn" hidden></p>
+      </section>
+
+      <section class="card">
+        <h2>Export</h2>
+        <div class="seg formats" role="group" aria-label="File format">
+          <button type="button" data-format="png">PNG</button>
+          <button type="button" data-format="jpeg">JPEG</button>
+          <button type="button" data-format="webp">WebP</button>
+          <button type="button" data-format="svg">SVG</button>
+        </div>
+        <p class="muted small" id="format-note"></p>
+
+        <div class="field" id="quality-field">
+          <div class="label-line"><label for="quality">Quality</label><output id="quality-out"></output></div>
+          <input type="range" id="quality" min="0.5" max="1" step="0.01">
+        </div>
+        <div class="row" id="matte-field">
+          <label for="matte">Background for transparent areas</label>
+          <input type="color" id="matte">
+        </div>
+        <fieldset class="radios" id="svg-field">
+          <legend class="sr-only">SVG type</legend>
+          <label class="check"><input type="radio" name="svgmode" value="vector"><span><b>Procedural vector</b> — tiny, infinitely scalable. Uses SVG filters &amp; shapes, so it closely approximates the preview.</span></label>
+          <label class="check"><input type="radio" name="svgmode" value="embed"><span><b>Exact bitmap in SVG</b> — pixel-identical to PNG, wrapped in an SVG file.</span></label>
+          <button type="button" class="btn small" id="btn-svg-preview">Preview SVG</button>
+        </fieldset>
+
+        <div class="field">
+          <label for="filename">File name</label>
+          <input type="text" id="filename" spellcheck="false" autocomplete="off">
+        </div>
+        <button type="button" class="btn primary block" id="btn-export">Download</button>
+        <div class="progress" id="progress" hidden>
+          <div class="bar"><span id="progress-bar"></span></div>
+          <div class="progress-line"><span id="progress-text">Rendering…</span><button type="button" class="link" id="btn-cancel">Cancel</button></div>
+        </div>
+        <p class="muted small" id="export-msg" role="status"></p>
+      </section>
+
+      <p class="muted small footnote">Everything runs locally in your browser — nothing is uploaded. Textures you generate are yours to use in any project.</p>
+    </aside>
+  </main>
+
+  <dialog id="svg-dialog">
+    <div class="dialog-head">
+      <h2>SVG preview</h2>
+      <button type="button" class="link" id="svg-close" aria-label="Close">Close</button>
+    </div>
+    <div class="dialog-body bg-checker"><img id="svg-img" alt="SVG rendering of the texture"></div>
+    <p class="muted small" id="svg-info"></p>
+  </dialog>
+
+  <noscript><p class="noscript">This app needs JavaScript.</p></noscript>
+</body>
+</html>
