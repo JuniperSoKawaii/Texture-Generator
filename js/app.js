@@ -21,7 +21,16 @@ const PALETTES = [
   ['Navy', '#0f1b33', '#c8d2e6'],
   ['Terracotta', '#6b2a16', '#e8b597'],
   ['Mustard', '#4d3a06', '#e9c46a'],
+  ['Lemon', '#8a6800', '#f6d23a'],
+  ['Tangerine', '#8a3510', '#f39340'],
+  ['Bubblegum', '#9a3d62', '#f6a9c6'],
+  ['Aqua', '#1b5f6b', '#8fd4d7'],
+  ['Pine', '#1f3528', '#7fa58a'],
+  ['Oatmeal', '#4f4232', '#e8dcc2'],
+  ['Steel', '#272b30', '#9aa2aa'],
 ];
+
+const GROUP_LABELS = { 'Grain & noise': 'Grain' };
 
 const FORMAT_NOTES = {
   png: 'Lossless, full transparency. Print sizes embed their DPI so layout apps place them at the right physical size.',
@@ -46,7 +55,7 @@ function defaultState() {
     global: { ...DEFAULT_GLOBAL, ...TEX.paper.colors },
     size: { group: 'web', preset: 'fhd', swap: false, dpi: 300, bleed: false, custom: { w: 2000, h: 2000, unit: 'px' } },
     exp: { format: 'png', quality: 0.92, matte: '#ffffff', svgMode: 'vector', filename: '' },
-    view: { mode: 'fit', tiled: true, bg: 'checker', panX: 0.5, panY: 0.5 },
+    view: { mode: 'fit', tiled: true, bg: 'checker', panX: 0.5, panY: 0.5, texGroup: 'all' },
   };
 }
 
@@ -121,6 +130,18 @@ const pool = new Pool(Math.max(1, Math.min(8, cores - 1)));
 
 const thumbs = [];
 function buildTexGrid() {
+  const tabs = $('tex-tabs');
+  tabs.innerHTML = '';
+  const groups = ['all', ...new Set(TEXTURES.map((t) => t.group))];
+  for (const g of groups) {
+    const b = el('button');
+    b.type = 'button'; b.dataset.group = g;
+    const n = g === 'all' ? TEXTURES.length : TEXTURES.filter((t) => t.group === g).length;
+    b.append(g === 'all' ? 'All' : GROUP_LABELS[g] || g, el('span', 'count', String(n)));
+    b.title = g === 'all' ? 'All textures' : g;
+    b.addEventListener('click', () => { state.view.texGroup = g; syncTexGrid(); saveSoon(); });
+    tabs.append(b);
+  }
   const grid = $('tex-grid');
   grid.innerHTML = '';
   for (const t of TEXTURES) {
@@ -690,8 +711,18 @@ function bindMisc() {
   });
 }
 
+function syncTexGrid() {
+  let g = state.view.texGroup || 'all';
+  if (g !== 'all' && !TEXTURES.some((t) => t.group === g)) g = state.view.texGroup = 'all';
+  document.querySelectorAll('#tex-tabs button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.group === g)));
+  document.querySelectorAll('.tex-btn').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.id === state.tex));
+    b.hidden = g !== 'all' && TEX[b.dataset.id].group !== g;
+  });
+}
+
 function syncAll() {
-  document.querySelectorAll('.tex-btn').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.id === state.tex)));
+  syncTexGrid();
   $('tex-desc').textContent = tex().desc;
   buildParams();
   $('seed').value = state.seed;

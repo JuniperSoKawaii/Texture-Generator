@@ -100,10 +100,12 @@ export class Ctx {
   }
 
   // Worley / cellular noise. Sets this.f1, this.f2 (in cell units) and this.cid.
-  cells(u, v, f, so, jitter = 1) {
-    let fx = f, fy = f, px = 0, py = 0;
+  // `hex` offsets alternate rows by half a cell for a honeycomb-like layout.
+  cells(u, v, f, so, jitter = 1, hex = false) {
+    let fx = f, fy = hex ? f * 1.1547 : f, px = 0, py = 0;
     if (this.tile) {
-      px = Math.round(f * this.Wu) || 1; py = Math.round(f * this.Hu) || 1;
+      px = Math.round(fx * this.Wu) || 1;
+      py = hex ? 2 * (Math.round((fy * this.Hu) / 2) || 1) : Math.round(fy * this.Hu) || 1;
       fx = px / this.Wu; fy = py / this.Hu;
     }
     const x = u * fx, y = v * fy, seed = this.seed + so * 7919;
@@ -112,8 +114,9 @@ export class Ctx {
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
         const cx = xi + dx, cy = yi + dy;
-        const h = hash3(px > 0 ? mod(cx, px) : cx, py > 0 ? mod(cy, py) : cy, seed);
-        const ox = cx + 0.5 + jitter * ((h & 0xffff) / 65536 - 0.5) - x;
+        const hy = py > 0 ? mod(cy, py) : cy;
+        const h = hash3(px > 0 ? mod(cx, px) : cx, hy, seed);
+        const ox = cx + (hex && hy & 1 ? 1 : 0.5) + jitter * ((h & 0xffff) / 65536 - 0.5) - x;
         const oy = cy + 0.5 + jitter * ((h >>> 16) / 65536 - 0.5) - y;
         const d = ox * ox + oy * oy;
         if (d < d1) { d2 = d1; d1 = d; id = h; } else if (d < d2) d2 = d;

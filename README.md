@@ -4,11 +4,14 @@ A static, in-browser texture generator for web and print. Pick a texture, tune i
 
 ## Features
 
-**18 procedural textures**
+**27 procedural textures**, grouped into tabs in the picker:
 
-| Paper | Grain & noise | Grunge | Material |
-| --- | --- | --- | --- |
-| Paper · Watercolour (cold-press) · Kraft / cardboard · Recycled / newsprint · Aged parchment | Film grain · Noise / clouds · Speckle · Halftone | Dirt / grunge · Dust & scratches · Concrete · Plaster / stucco | Canvas / linen · Wood grain · Marble · Leather · Granite |
+- **Paper (15):** Paper · Watercolour (cold-press) · Kraft / cardboard · Recycled / newsprint · Aged parchment · Smooth / vellum · Speckled stock · Felt-finish cover · Butcher / packing paper · Laid paper · Washi / mulberry · Chipboard / grey board · Linen-finish stationery · Crumpled paper · Pastel paper (honeycomb)
+- **Grain & noise:** Film grain · Noise / clouds · Speckle · Halftone
+- **Grunge:** Dirt / grunge · Dust & scratches · Concrete · Plaster / stucco
+- **Material:** Canvas / linen · Marble · Leather · Granite
+
+Several of the paper finishes take their cue from speciality cover stocks such as those from French Paper Company — smooth bright vellums, speckled recycled stock, felt-pressed cover and vintage packing papers — and pair well with the bold colour presets.
 
 Each texture has its own controls (scale, fibres, coverage, roughness, …) plus a seed, so results are reproducible.
 
@@ -30,7 +33,7 @@ Each texture has its own controls (scale, fibres, coverage, roughness, …) plus
 | PNG | Lossless, full alpha. Streamed through a custom encoder, so very large print files don't hit browser canvas limits, and the DPI is embedded (`pHYs`) so InDesign/Affinity/Photoshop place it at the right physical size. Fully opaque images are saved as RGB to keep files smaller. |
 | JPEG | Quality slider; DPI embedded (JFIF). Transparent areas are flattened onto a background colour you choose. |
 | WebP | Quality slider, keeps transparency. |
-| SVG | **Procedural vector** – a tiny, resolution-independent file built from SVG filters (`feTurbulence`, lighting, displacement) and real vector shapes. Speckle, halftone and dust & scratches are pure vector shapes that open in any editor. **Exact bitmap in SVG** – pixel-identical to the PNG, wrapped in an SVG (useful for tools that ignore SVG filters, such as Figma). Print SVGs carry physical `width`/`height` (e.g. `210mm`). |
+| SVG | **Procedural vector** – a tiny, resolution-independent file built from SVG filters (`feTurbulence`, lighting, displacement) and real vector shapes. Speckle, halftone and dust & scratches are pure vector shapes that open in any editor; several papers (speckled stock, chipboard, washi) mix filters with real vector flecks. **Exact bitmap in SVG** – pixel-identical to the PNG, wrapped in an SVG (useful for tools that ignore SVG filters, such as Figma). Print SVGs carry physical `width`/`height` (e.g. `210mm`). |
 
 **Other niceties** – Fit and 100 % (actual pixels, drag to pan) previews, multi-threaded rendering in Web Workers, settings remembered between visits, and **Copy link** to share an exact setup.
 

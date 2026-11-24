@@ -87,12 +87,12 @@ function svgLines(S, cell, so, density, len, width, toneFn) {
 }
 
 // Fibre directions: free angles normally, axis-aligned stretches when tiling.
-function fiberDirs(c, n, so) {
+function fiberDirs(c, n, so, k = 0.15) {
   const rng = mulberry32(c.seed + so);
   const out = [];
   for (let i = 0; i < n; i++) {
-    if (c.tile) out.push({ rot: false, ax: i % 2 ? 1 : 0.15, ay: i % 2 ? 0.15 : 1, i });
-    else { const a = rng() * Math.PI; out.push({ rot: true, cs: Math.cos(a), sn: Math.sin(a), ax: 0.15, ay: 1, i }); }
+    if (c.tile) out.push({ rot: false, ax: i % 2 ? 1 : k, ay: i % 2 ? k : 1, i });
+    else { const a = rng() * Math.PI; out.push({ rot: true, cs: Math.cos(a), sn: Math.sin(a), ax: k, ay: 1, i }); }
   }
   return out;
 }
@@ -109,10 +109,10 @@ function fibers(u, v, c, dirs, f, so, sharp) {
   return sum;
 }
 
-function svgFibers(S, f, so, sharp, n) {
+function svgFibers(S, f, so, sharp, n, k = 0.15) {
   const out = [];
   for (let i = 0; i < n; i++) {
-    const L = S.turb(f, 3, { so: so + i, ax: i % 2 ? 1 : 0.15, ay: i % 2 ? 0.15 : 1 });
+    const L = S.turb(f, 3, { so: so + i, ax: i % 2 ? 1 : k, ay: i % 2 ? k : 1 });
     out.push(S.ridge(L, sharp));
   }
   return out;
@@ -289,6 +289,317 @@ export const TEXTURES = [
         S.overlay(`<rect width="${S.W}" height="${S.H}" fill="url(#${id})"/>`);
       }
       return out;
+    },
+  },
+
+  {
+    id: 'vellum', name: 'Smooth / vellum', group: 'Paper',
+    desc: 'Smooth, brightly coloured cover stock with a soft, cloudy formation.',
+    params: [SCALE, R('formation', 'Formation', 0, 1, 0.01, 0.5, { hint: 'The cloudy look-through pattern of the pulp' }),
+      R('tooth', 'Tooth', 0, 1, 0.01, 0.3), R('fibers', 'Fibres', 0, 1, 0.01, 0.15)],
+    colors: { low: '#a37800', lowA: 1, high: '#f6d23a', highA: 1 },
+    setup: (p, c) => ({ dirs: fiberDirs(c, 2, 21) }),
+    sample(u, v, c, p, st) {
+      const s = p.scale;
+      let t = 0.9;
+      if (p.formation) t += p.formation * (0.1 * c.fbm(u, v, 0.025 / s, 4, 0.55, 1) + 0.05 * c.fbm(u, v, 0.004 / s, 3, 0.5, 2));
+      if (p.tooth) t += p.tooth * 0.05 * c.reliefFbm(u, v, 0.12 / s, 3, 0.5, 3);
+      if (p.fibers) t -= p.fibers * 0.06 * fibers(u, v, c, st.dirs, 0.03 / s, 10, 12);
+      return t;
+    },
+    svg(p, S) {
+      const s = p.scale;
+      const fib = svgFibers(S, 0.03 / s, 10, 1, 2).map((L) => S.gamma(L, 12));
+      return S.mix(0.9, [
+        [S.turb(0.025 / s, 4, { so: 1 }), p.formation * 0.2], [S.turb(0.004 / s, 3, { so: 2 }), p.formation * 0.1],
+        [S.relief(S.turb(0.12 / s, 3, { so: 3 }), 2.5 * s), p.tooth * 0.15],
+        [fib[0], -p.fibers * 0.1], [fib[1], -p.fibers * 0.1],
+      ]);
+    },
+  },
+
+  {
+    id: 'speckled', name: 'Speckled stock', group: 'Paper',
+    desc: 'Natural-toned recycled cover flecked with dark and light inclusions and bits of fibre.',
+    params: [SCALE, R('flecks', 'Dark flecks', 0, 1, 0.01, 0.6), R('light', 'Light flecks', 0, 1, 0.01, 0.3),
+      R('bits', 'Fibre bits', 0, 1, 0.01, 0.5), R('mottle', 'Mottling', 0, 1, 0.01, 0.4)],
+    colors: { low: '#3a3026', lowA: 1, high: '#ebdfc6', highA: 1 },
+    sample(u, v, c, p) {
+      const s = p.scale;
+      let t = 0.8 + p.mottle * 0.12 * c.fbm(u, v, 0.006 / s, 4, 0.5, 1) + 0.03 * c.grain(u, v, 1 * s, 2);
+      if (p.light) t += 0.16 * c.dots(u, v, 30 * s, 4, p.light * 1.2, 0.5 * s, 1.8 * s);
+      if (p.bits) { const l = c.lines(u, v, 30 * s, 5, p.bits * 1.2, 0.5, 0.35 * s); t -= l * (0.25 + 0.35 * c.tone); }
+      if (p.flecks) { const a = c.dots(u, v, 14 * s, 3, p.flecks * 1.4, 0.3 * s, 1.6 * s); t -= a * (0.3 + 0.45 * c.tone); }
+      return t;
+    },
+    svg(p, S) {
+      const s = p.scale;
+      const out = S.mix(0.8, [[S.turb(0.006 / s, 4, { so: 1 }), p.mottle * 0.24], [S.turb(1 / s, 1, { so: 2 }), 0.09]]);
+      if (p.light) svgDots(S, 30 * s, 4, p.light * 1.2, 0.5 * s, 1.8 * s, () => 0.96);
+      if (p.bits) svgLines(S, 30 * s, 5, p.bits * 1.2, 0.5, 0.35 * s, (tn) => 0.8 - (0.25 + 0.35 * tn));
+      if (p.flecks) svgDots(S, 14 * s, 3, p.flecks * 1.4, 0.3 * s, 1.6 * s, (tn) => 0.8 - (0.3 + 0.45 * tn));
+      return out;
+    },
+  },
+
+  {
+    id: 'felt', name: 'Felt-finish cover', group: 'Paper',
+    desc: 'Heavy coloured cover pressed with a felt blanket — soft woven bumps and visible fibres.',
+    params: [SCALE, R('felt', 'Felt marks', 0, 1, 0.01, 0.6), R('fibers', 'Fibres', 0, 1, 0.01, 0.5), R('mottle', 'Mottling', 0, 1, 0.01, 0.5)],
+    colors: { low: '#24392c', lowA: 1, high: '#86ab8f', highA: 1 },
+    setup(p, c) {
+      const s = p.scale, f = 0.06 / s;
+      const h = (a, b) => c.fbm(a, b, f, 4, 0.55, 1) + 0.35 * c.fbm(a, b, f * 2.5, 2, 0.5, 2);
+      return { h, f, dirs: fiberDirs(c, 4, 13) };
+    },
+    sample(u, v, c, p, st) {
+      const s = p.scale;
+      let t = 0.72 + p.mottle * 0.16 * c.fbm(u, v, 0.005 / s, 5, 0.5, 3) + 0.03 * c.grain(u, v, 1 * s, 4);
+      if (p.felt) t += p.felt * 0.11 * c.relief(st.h, u, v) / (st.f * 2);
+      if (p.fibers) t += p.fibers * (0.08 * fibers(u, v, c, st.dirs.slice(0, 2), 0.03 / s, 10, 12) - 0.06 * fibers(u, v, c, st.dirs.slice(2), 0.03 / s, 14, 12));
+      return t;
+    },
+    svg(p, S) {
+      const s = p.scale;
+      const h = S.mix(0.5, [[S.turb(0.06 / s, 4, { so: 1 }), 1], [S.turb(0.15 / s, 2, { so: 2 }), 0.35]]);
+      const fa = svgFibers(S, 0.03 / s, 10, 1, 2).map((L) => S.gamma(L, 12));
+      const fb = svgFibers(S, 0.03 / s, 14, 1, 2).map((L) => S.gamma(L, 12));
+      return S.mix(0.72, [
+        [S.turb(0.005 / s, 5, { so: 3 }), p.mottle * 0.32], [S.relief(h, 4 * s), p.felt * 0.3],
+        [fa[0], p.fibers * 0.12], [fa[1], p.fibers * 0.12], [fb[0], -p.fibers * 0.1], [fb[1], -p.fibers * 0.1],
+        [S.turb(1 / s, 1, { so: 4 }), 0.09],
+      ]);
+    },
+  },
+
+  {
+    id: 'butcher', name: 'Butcher / packing paper', group: 'Paper',
+    desc: 'Machine-made wrapping paper with streaks running along the grain.',
+    params: [SCALE, R('streaks', 'Streaks', 0, 1, 0.01, 0.35), R('fibers', 'Fibres', 0, 1, 0.01, 0.6), R('mottle', 'Mottling', 0, 1, 0.01, 0.55),
+      SEL('dir', 'Grain direction', [['h', 'Horizontal'], ['v', 'Vertical']], 'h')],
+    colors: { low: '#4a2c1a', lowA: 1, high: '#c4906c', highA: 1 },
+    setup: (p, c) => ({ dirs: fiberDirs(c, 4, 17) }),
+    sample(u, v, c, p, st) {
+      const s = p.scale, h = p.dir === 'h';
+      let t = 0.7 + p.mottle * 0.14 * c.fbm(u, v, 0.005 / s, 4, 0.5, 1) + 0.03 * c.grain(u, v, 1 * s, 5);
+      t += p.streaks * 0.08 * c.fbm(u, v, 0.006 / s, 3, 0.5, 2, h ? 0.04 : 1, h ? 1 : 0.04);
+      if (p.fibers) t += p.fibers * (0.06 * fibers(u, v, c, st.dirs.slice(0, 2), 0.035 / s, 3, 12) - 0.07 * fibers(u, v, c, st.dirs.slice(2), 0.035 / s, 4, 12));
+      return t;
+    },
+    svg(p, S) {
+      const s = p.scale, h = p.dir === 'h';
+      const fa = svgFibers(S, 0.035 / s, 3, 1, 2).map((L) => S.gamma(L, 12));
+      const fb = svgFibers(S, 0.035 / s, 5, 1, 2).map((L) => S.gamma(L, 12));
+      return S.mix(0.7, [
+        [S.turb(0.005 / s, 4, { so: 1 }), p.mottle * 0.28],
+        [S.turb(0.006 / s, 3, { so: 2, ax: h ? 0.04 : 1, ay: h ? 1 : 0.04 }), p.streaks * 0.16],
+        [fa[0], p.fibers * 0.09], [fa[1], p.fibers * 0.09], [fb[0], -p.fibers * 0.1], [fb[1], -p.fibers * 0.1],
+        [S.turb(1 / s, 1, { so: 5 }), 0.09],
+      ]);
+    },
+  },
+
+  {
+    id: 'laid', name: 'Laid paper', group: 'Paper',
+    desc: 'Classic stationery with fine laid lines crossed by wider-spaced chain lines.',
+    params: [R('laid', 'Laid line spacing', 1.5, 10, 0.1, 3.5), R('chain', 'Chain line spacing', 10, 120, 1, 45),
+      R('strength', 'Line strength', 0, 1, 0.01, 0.55), R('mottle', 'Mottling', 0, 1, 0.01, 0.4), R('scale', 'Mottle scale', 0.25, 4, 0.05, 1),
+      SEL('dir', 'Laid lines', [['h', 'Horizontal'], ['v', 'Vertical']], 'h')],
+    colors: { low: '#8c8068', lowA: 1, high: '#f5efdf', highA: 1 },
+    setup(p, c) {
+      const h = p.dir === 'h';
+      const across = h ? c.Hu : c.Wu, along = h ? c.Wu : c.Hu;
+      let ls = p.laid, cs = p.chain;
+      if (c.tile) { ls = across / Math.max(1, Math.round(across / ls)); cs = along / Math.max(1, Math.round(along / cs)); }
+      return { h, ls, cs };
+    },
+    lines(p, st) {
+      const k = p.strength;
+      return { base: 0.88, laid: 0.88 - 0.07 * k, band: 0.88 - 0.035 * k, chain: 0.88 - 0.12 * k };
+    },
+    sample(u, v, c, p, st) {
+      const a = st.h ? v : u, b = st.h ? u : v, fp = c.fp;
+      // Laid lines: thin, slightly wavy.
+      const ph = a / st.ls + 0.08 * c.fbm(u, v, 0.02, 2, 0.5, 7);
+      const fr = ph - Math.floor(ph), dl = Math.min(fr, 1 - fr) * st.ls;
+      const lw = st.ls * 0.22;
+      let laid = 1 - smoothstep(lw * 0.3, lw + fp * 0.5, dl);
+      laid = mix(0.25, laid, clamp01((st.ls / fp - 1.5) / 1.5));
+      // Chain lines with a soft shadow either side.
+      const pc = b / st.cs, fc = pc - Math.floor(pc), dc = Math.min(fc, 1 - fc) * st.cs;
+      const cw = 0.9, we = Math.max(cw, fp);
+      const chain = clamp01((we / 2 - dc) / fp + 0.5) * (cw / we);
+      const band = Math.exp(-dc / 5);
+      const k = p.strength;
+      let t = 0.88 - k * (0.1 * laid + 0.035 * band + 0.12 * chain);
+      t += p.mottle * (0.08 * c.fbm(u, v, 0.01 / p.scale, 4, 0.5, 1) + 0.05 * c.fbm(u, v, 0.003 / p.scale, 3, 0.5, 2));
+      return t + 0.02 * c.grain(u, v, 1, 3);
+    },
+    svg(p, S) {
+      const c = svgCtx(S);
+      const st = this.setup(p, c), k = p.strength;
+      const g = (x) => { const n = Math.round(clamp01(x) * 255); return `rgb(${n},${n},${n})`; };
+      const lw = st.ls * 0.22 * 1.3;
+      // Pattern cell: one laid-line period across, one chain period along.
+      const W = st.h ? st.cs : st.ls, H = st.h ? st.ls : st.cs;
+      const rect = (along0, alongLen, across0, acrossLen, tone) => st.h
+        ? `<rect x="${along0}" y="${across0}" width="${alongLen}" height="${acrossLen}" fill="${g(tone)}"/>`
+        : `<rect x="${across0}" y="${along0}" width="${acrossLen}" height="${alongLen}" fill="${g(tone)}"/>`;
+      const alongLen = st.cs, acrossLen = st.ls;
+      let content = rect(0, alongLen, 0, acrossLen, 0.88);
+      content += rect(0, alongLen, (acrossLen - lw) / 2, lw, 0.88 - 0.1 * k);
+      content += rect(alongLen / 2 - 6, 12, 0, acrossLen, 0.88 - 0.025 * k);
+      content += rect(alongLen / 2 - 2, 4, 0, acrossLen, 0.88 - 0.045 * k);
+      content += rect(alongLen / 2 - 0.45, 0.9, 0, acrossLen, 0.88 - 0.12 * k);
+      let src = S.pattern(content, W, H);
+      src = S.disp(src, S.raw(0.02, 2, { so: 7 }), st.ls * 0.3);
+      return S.mix(0.5, [[src, 1], [S.turb(0.01 / p.scale, 4, { so: 1 }), p.mottle * 0.16], [S.turb(0.003 / p.scale, 3, { so: 2 }), p.mottle * 0.1]]);
+    },
+  },
+
+  {
+    id: 'washi', name: 'Washi / mulberry', group: 'Paper',
+    desc: 'Handmade Japanese-style paper with long, silky fibres and uneven thickness.',
+    params: [SCALE, R('fibers', 'Long fibres', 0, 1, 0.01, 0.7), R('clouds', 'Thickness variation', 0, 1, 0.01, 0.6), R('inclusions', 'Bark flecks', 0, 1, 0.01, 0.25)],
+    colors: { low: '#968b74', lowA: 1, high: '#fbf8f0', highA: 1 },
+    setup: (p, c) => ({ dirs: fiberDirs(c, 6, 31, 0.08) }),
+    sample(u, v, c, p, st) {
+      const s = p.scale;
+      let t = 0.84 + p.clouds * (0.16 * c.fbm(u, v, 0.006 / s, 5, 0.55, 1) + 0.06 * c.fbm(u, v, 0.03 / s, 3, 0.5, 2));
+      if (p.fibers) {
+        // Warp the fibre field so strands curl rather than running dead straight.
+        const wu = u + 30 * s * c.fbm(u, v, 0.005 / s, 3, 0.5, 40), wv = v + 30 * s * c.fbm(u, v, 0.005 / s, 3, 0.5, 41);
+        t += p.fibers * 0.08 * fibers(wu, wv, c, st.dirs.slice(0, 4), 0.012 / s, 10, 20);
+        t -= p.fibers * 0.05 * fibers(wu, wv, c, st.dirs.slice(4), 0.02 / s, 20, 20);
+      }
+      if (p.inclusions) {
+        const l = c.lines(u, v, 60 * s, 6, p.inclusions * 1.5, 0.4, 0.6 * s);
+        t -= l * (0.3 + 0.3 * c.tone);
+        t -= 0.35 * c.dots(u, v, 40 * s, 7, p.inclusions, 0.4 * s, 1.4 * s);
+      }
+      return t;
+    },
+    svg(p, S) {
+      const s = p.scale;
+      const warp = S.raw(0.005 / s, 3, { so: 40 });
+      const fa = svgFibers(S, 0.012 / s, 10, 1, 2, 0.08).map((L) => S.disp(S.gamma(L, 20), warp, 50 * s));
+      const fb = svgFibers(S, 0.02 / s, 20, 1, 2, 0.08).map((L) => S.disp(S.gamma(L, 20), warp, 50 * s));
+      const out = S.mix(0.84, [
+        [S.turb(0.006 / s, 5, { so: 1 }), p.clouds * 0.32], [S.turb(0.03 / s, 3, { so: 2 }), p.clouds * 0.12],
+        [fa[0], p.fibers * 0.11], [fa[1], p.fibers * 0.11], [fb[0], -p.fibers * 0.07], [fb[1], -p.fibers * 0.07],
+      ]);
+      if (p.inclusions) {
+        svgLines(S, 60 * s, 6, p.inclusions * 1.5, 0.4, 0.6 * s, (tn) => 0.84 - (0.3 + 0.3 * tn));
+        svgDots(S, 40 * s, 7, p.inclusions, 0.4 * s, 1.4 * s, () => 0.49);
+      }
+      return out;
+    },
+  },
+
+  {
+    id: 'chipboard', name: 'Chipboard / grey board', group: 'Paper',
+    desc: 'Recycled board packed with chunky light and dark inclusions.',
+    params: [SCALE, R('inclusions', 'Inclusions', 0, 1, 0.01, 0.7), R('chunks', 'Large chunks', 0, 1, 0.01, 0.4), R('mottle', 'Mottling', 0, 1, 0.01, 0.4)],
+    colors: { low: '#2a2723', lowA: 1, high: '#c2b8a8', highA: 1 },
+    incTone: (tn) => (tn > 0.5 ? 0.28 : -0.3) * (0.5 + Math.abs(tn - 0.5)),
+    sample(u, v, c, p) {
+      const s = p.scale;
+      let t = 0.58 + p.mottle * 0.14 * c.fbm(u, v, 0.006 / s, 4, 0.5, 1) + 0.06 * c.grain(u, v, 1.2 * s, 2);
+      if (p.chunks) { const k = c.dots(u, v, 50 * s, 5, p.chunks * 1.2, 1.5 * s, 4.5 * s); t += k * (c.tone - 0.5) * 0.5; }
+      if (p.inclusions) {
+        const l = c.lines(u, v, 24 * s, 4, p.inclusions, 0.5, 0.4 * s); t += l * (c.tone - 0.45) * 0.5;
+        const a = c.dots(u, v, 9 * s, 3, p.inclusions * 1.6, 0.3 * s, 1.8 * s); t += a * TEX.chipboard.incTone(c.tone);
+      }
+      return t;
+    },
+    svg(p, S) {
+      const s = p.scale;
+      const out = S.mix(0.58, [[S.turb(0.006 / s, 4, { so: 1 }), p.mottle * 0.28], [S.turb(1 / (1.2 * s), 1, { so: 2 }), 0.18]]);
+      if (p.chunks) svgDots(S, 50 * s, 5, p.chunks * 1.2, 1.5 * s, 4.5 * s, (tn) => 0.58 + (tn - 0.5) * 0.5);
+      if (p.inclusions) {
+        svgLines(S, 24 * s, 4, p.inclusions, 0.5, 0.4 * s, (tn) => 0.58 + (tn - 0.45) * 0.5);
+        svgDots(S, 9 * s, 3, p.inclusions * 1.6, 0.3 * s, 1.8 * s, (tn) => 0.58 + this.incTone(tn));
+      }
+      return out;
+    },
+  },
+
+  {
+    id: 'linenfinish', name: 'Linen-finish stationery', group: 'Paper',
+    desc: 'Writing paper embossed with a fine cross-hatched linen pattern.',
+    params: [SCALE, R('emboss', 'Emboss depth', 0, 1, 0.01, 0.6), R('balance', 'Horizontal ↔ vertical', 0, 1, 0.01, 0.5), R('mottle', 'Mottling', 0, 1, 0.01, 0.3)],
+    colors: { low: '#9d9583', lowA: 1, high: '#fbf9f3', highA: 1 },
+    setup(p, c) {
+      const f = 0.16 / p.scale, bh = 1 - p.balance, bv = p.balance;
+      const h = (a, b) => 2 * bh * c.fbm(a, b, f, 2, 0.5, 1, 0.05, 1) + 2 * bv * c.fbm(a, b, f, 2, 0.5, 2, 1, 0.05);
+      return { h, f };
+    },
+    sample(u, v, c, p, st) {
+      return 0.88 + p.emboss * 0.12 * c.relief(st.h, u, v) / (st.f * 3) + p.mottle * 0.08 * c.fbm(u, v, 0.005 / p.scale, 4, 0.5, 3) + 0.02 * c.grain(u, v, 1, 4);
+    },
+    svg(p, S) {
+      const f = 0.16 / p.scale;
+      const h = S.mix(0.5, [[S.turb(f, 2, { so: 1, ax: 0.05 }), 2 * (1 - p.balance)], [S.turb(f, 2, { so: 2, ay: 0.05 }), 2 * p.balance]]);
+      return S.mix(0.88, [[S.relief(h, 1.5 * p.scale), p.emboss * 0.35], [S.turb(0.005 / p.scale, 4, { so: 3 }), p.mottle * 0.16]]);
+    },
+  },
+
+  {
+    id: 'crumpled', name: 'Crumpled paper', group: 'Paper',
+    desc: 'Paper scrunched up and flattened again — straight creases and angular facets.',
+    params: [SCALE, R('creases', 'Crease depth', 0, 1, 0.01, 0.7), R('wrinkles', 'Fine wrinkles', 0, 1, 0.01, 0.5), R('shadow', 'Shadowing', 0, 1, 0.01, 0.35)],
+    colors: { low: '#5f5b53', lowA: 1, high: '#f8f6f1', highA: 1 },
+    setup(p, c) {
+      const s = p.scale, f = 0.006 / s;
+      // Voronoi cell borders are straight lines, so (F2 − F1) makes crisp, faceted creases.
+      const edge = (a, b, ff, so) => { c.cells(a, b, ff, so, 1); return Math.min(1, c.f2 - c.f1) * c.wt(ff); };
+      const h = (a, b) => {
+        const wa = a + 12 * s * c.fbm(a, b, 0.004 / s, 2, 0.5, 9), wb = b + 12 * s * c.fbm(a, b, 0.004 / s, 2, 0.5, 10);
+        return 0.6 * edge(wa, wb, f, 1) - 0.35 * edge(wa, wb, f * 2.3, 2) + p.wrinkles * (0.18 * edge(a, b, f * 6, 3) - 0.1 * edge(a, b, f * 11, 4));
+      };
+      return { h, f };
+    },
+    sample(u, v, c, p, st) {
+      const h = st.h(u, v);
+      return 0.84 + p.creases * 0.14 * c.relief(st.h, u, v) / (st.f * 2.5) + p.shadow * 0.25 * (h - 0.15);
+    },
+    svg(p, S) {
+      const s = p.scale, f = 0.006 / s;
+      const big = S.turb(f, 2, { so: 1, type: 'turbulence' }), mid = S.turb(f * 2.3, 2, { so: 2, type: 'turbulence' });
+      const fine = S.turb(f * 6, 2, { so: 3, type: 'turbulence' });
+      const h = S.mix(0.5, [[big, 0.9], [mid, -0.5], [fine, p.wrinkles * 0.3]]);
+      return S.mix(0.86, [[S.relief(S.blur(h, 1.5 * s), 16 * s), p.creases * 0.6], [h, p.shadow * 0.25]]);
+    },
+  },
+
+  {
+    id: 'pastel', name: 'Pastel paper', group: 'Paper',
+    desc: 'Tinted drawing paper with a fine honeycomb grain that catches pastel and charcoal.',
+    params: [R('cell', 'Cell size', 1.5, 12, 0.1, 5), R('depth', 'Depth', 0, 1, 0.01, 0.6), R('irregular', 'Irregularity', 0, 1, 0.01, 0.35), R('mottle', 'Mottling', 0, 1, 0.01, 0.4)],
+    colors: { low: '#3e4f63', lowA: 1, high: '#a8bed4', highA: 1 },
+    setup(p, c) {
+      const f = 1 / p.cell, jit = 0.1 + p.irregular * 0.7;
+      const h = (a, b) => { c.cells(a, b, f, 1, jit, true); return smoothstep(0, 0.45, c.f2 - c.f1) * c.wt(f); };
+      return { h, f };
+    },
+    sample(u, v, c, p, st) {
+      return 0.72 + p.depth * 0.3 * c.relief(st.h, u, v) / (st.f * 3) + p.mottle * 0.12 * c.fbm(u, v, 0.005, 4, 0.5, 2) + 0.03 * c.grain(u, v, 1, 3);
+    },
+    svg(p, S) {
+      const c = svgCtx(S);
+      // Exact honeycomb pattern of shaded domes, nudged by turbulence for irregularity.
+      let cw = p.cell, ch = p.cell * 0.866 * 2;
+      if (c.tile) { cw = c.Wu / Math.max(1, Math.round(c.Wu / p.cell)); ch = c.Hu / Math.max(1, Math.round(c.Hu / (p.cell * 1.732))); }
+      const gid = S.id('dome'), k = p.depth;
+      const g = (x) => { const n = Math.round(clamp01(x) * 255); return `rgb(${n},${n},${n})`; };
+      S.defs.push(`<radialGradient id="${gid}" cx="0.5" cy="0.5" r="0.5" fx="0.32" fy="0.32"><stop offset="0" stop-color="${g(0.5 + 0.22 * k)}"/><stop offset="0.7" stop-color="${g(0.5)}"/><stop offset="1" stop-color="${g(0.5 - 0.2 * k)}"/></radialGradient>`);
+      const r = cw * 0.56;
+      const dome = (x, y) => `<circle cx="${x}" cy="${y}" r="${r}" fill="url(#${gid})"/>`;
+      const content = `<rect width="${cw}" height="${ch}" fill="${g(0.5 - 0.15 * k)}"/>` +
+        [[0, 0], [cw, 0], [0, ch], [cw, ch], [cw / 2, ch / 2]].map(([x, y]) => dome(x, y)).join('');
+      let src = S.pattern(content, cw, ch);
+      if (p.irregular) src = S.disp(src, S.raw(0.5 / p.cell, 2, { so: 4 }), p.irregular * p.cell * 0.6);
+      return S.mix(0.72, [[src, 0.9], [S.turb(0.005, 4, { so: 2 }), p.mottle * 0.24], [S.turb(1, 1, { so: 3 }), 0.09]]);
     },
   },
 
@@ -605,50 +916,6 @@ export const TEXTURES = [
       return S.mix(0.78 - 0.22 * p.depth, [
         [src, p.depth], [S.turb(4 / cw, 1, { so: 9 }), p.fuzz * 0.25], [S.turb(0.004, 4, { so: 8 }), 0.12],
       ]);
-    },
-  },
-
-  {
-    id: 'wood', name: 'Wood grain', group: 'Material',
-    desc: 'Plank grain with growth rings and fibre streaks.',
-    params: [SCALE, R('rings', 'Rings', 1, 60, 0.5, 12), R('warp', 'Warp', 0, 2, 0.01, 0.7),
-      R('grain', 'Fibre streaks', 0, 1, 0.01, 0.6), R('contrast', 'Ring contrast', 0, 1, 0.01, 0.6), R('angle', 'Angle', 0, 180, 1, 90)],
-    colors: { low: '#4a2e17', lowA: 1, high: '#d8a96c', highA: 1 },
-    setup(p, c) {
-      const [kx, ky] = c.wave(p.rings / 1000, p.angle);
-      const a = Math.atan2(ky, kx);
-      return { kx, ky, cs: Math.cos(a), sn: Math.sin(a), vertical: Math.abs(kx) >= Math.abs(ky), w: c.wt(Math.hypot(kx, ky) * 3) };
-    },
-    // Noise stretched along the grain: fast across the rings, slow along them.
-    along(u, v, c, st, f, oct, so, stretch) {
-      if (c.tile) return st.vertical ? c.fbm(u, v, f, oct, 0.5, so, 1, stretch) : c.fbm(u, v, f, oct, 0.5, so, stretch, 1);
-      return c.fbm(u * st.cs + v * st.sn, -u * st.sn + v * st.cs, f, oct, 0.5, so, 1, stretch);
-    },
-    sample(u, v, c, p, st) {
-      const s = p.scale, W = TEX.wood;
-      const warp = W.along(u, v, c, st, 0.0015 / s, 5, 1, 0.12);
-      const t0 = st.kx * u + st.ky * v + p.warp * 3 * warp + 0.04 * W.along(u, v, c, st, 0.02 / s, 3, 2, 0.2);
-      const ring = t0 - Math.floor(t0);
-      const late = smoothstep(0.3, 0.97, ring);
-      const inten = 0.75 + 0.6 * c.fbm(u, v, 0.003 / s, 3, 0.5, 3);
-      let t = 0.86 - p.contrast * 0.65 * late * late * inten * st.w - p.contrast * 0.2 * (1 - st.w);
-      if (p.grain) t -= p.grain * 0.35 * Math.abs(W.along(u, v, c, st, 0.15 / s, 3, 5, 0.03));
-      return t;
-    },
-    svg(p, S) {
-      const s = p.scale;
-      const c = svgCtx(S);
-      const st = this.setup(p, c);
-      let kx = st.kx, ky = st.ky;
-      if (!S.tile) { S.rotate((Math.atan2(ky, kx) * 180) / Math.PI); kx = Math.hypot(st.kx, st.ky); ky = 0; }
-      const vert = S.tile ? st.vertical : true;
-      const prof = (t) => { const l = smoothstep(0.3, 0.97, t); return 0.86 - p.contrast * 0.65 * l * l * st.w - p.contrast * 0.2 * (1 - st.w); };
-      const src = S.stripes(kx, ky, prof, 48);
-      const period = 1 / Math.hypot(kx, ky);
-      const map = S.raw(0.0015 / s, 5, { so: 1, ax: vert ? 1 : 0.12, ay: vert ? 0.12 : 1 });
-      const warped = S.disp(src, map, p.warp * period * 5);
-      const fib = S.tbl(S.turb(0.15 / s, 3, { so: 5, ax: vert ? 1 : 0.03, ay: vert ? 0.03 : 1 }), [1, 0, 1]);
-      return S.mix(0.5, [[warped, 1], [S.turb(0.003 / s, 3, { so: 3 }), -0.3 * p.contrast], [fib, -p.grain * 0.3]]);
     },
   },
 
